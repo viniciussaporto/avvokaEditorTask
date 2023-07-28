@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Avvoka Editor Task - Part 1</title>
+		<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+		<link rel="icon" type="image/x-icon" href="avvoka.ico">
+	</head>
+	<body>
+		<div id="editor">
+			<p>Start typing here...</p>
+		</div>
+
+		<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+		<script>
+    // Custom module for the editor
+    class QImageTextModule {
+      constructor(quill) {
+        this.quill = quill;
+        this.toolbar = quill.getModule('toolbar');
+
+        // Custom blot for qImage format
+        class QImageBlot extends quill.import('blots/embed') {
+          static create(value) {
+            const node = super.create(value);
+            node.innerHTML = `
+              <img src="${value.image}" />
+              ${value.text}
+            `;
+            return node;
+          }
+
+          static value(node) {
+            const img = node.querySelector('img');
+            return {
+              image: img.getAttribute('src'),
+              text: node.textContent.trim(),
+            };
+          }
+        }
+
+        QImageBlot.blotName = 'qImage';
+        QImageBlot.tagName = 'q-img-text';
+
+        // Register the custom blot
+        quill.register(QImageBlot);
+
+        // Add a custom button to the toolbar
+        this.toolbar.addHandler('q-img-text', () => {
+          const range = this.quill.getSelection();
+          this.quill.insertEmbed(range.index, 'qImage', {
+            image: 'https://picsum.photos/200/300',
+            text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+          });
+        });
+
+        // Allow drop handling in the editor
+        this.quill.root.addEventListener('drop', (event) => {
+          event.preventDefault();
+          const range = this.quill.getSelection();
+          const text = event.dataTransfer.getData('text');
+          const image = event.dataTransfer.getData('text/uri-list');
+          this.quill.insertEmbed(range.index, 'qImage', { image, text });
+        });
+      }
+    }
+
+    // Initialize the Quill editor
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, 4, 5, 6, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          ['link', 'image', 'video'],
+          ['q-img-text'],
+        ],
+      },
+    });
+
+    // Register the custom module
+    quill.addModule('qImageTextModule', QImageTextModule);
+
+  </script>
+	</body>
+</html>

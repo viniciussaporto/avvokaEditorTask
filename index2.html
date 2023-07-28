@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Avvoka Editor Task - Part 2</title>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="avvoka.ico">
+  </head>
+  <body>
+    <div id="editor">
+      <p>Start typing here...</p>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+    // Custom module for the editor
+    class QImageTextModule {
+      constructor(quill) {
+        this.quill = quill;
+        this.toolbar = quill.getModule('toolbar');
+
+        // Custom blot for qImage format
+        const EmbedBlot = Quill.import('blots/embed');
+        class QImageBlot extends EmbedBlot {
+          static create(value) {
+            const node = super.create(value);
+            node.innerHTML = `
+              <img src="${value.image}" title="${value.title}" />
+              ${value.text}
+            `;
+            return node;
+          }
+
+          static value(node) {
+            const img = node.querySelector('img');
+            return {
+              image: img.getAttribute('src'),
+              title: img.getAttribute('title'),
+              text: node.textContent.trim(),
+            };
+          }
+        }
+
+        QImageBlot.blotName = 'qImage';
+        QImageBlot.tagName = 'q-img-text';
+
+        // Register the custom blot
+        quill.register(QImageBlot);
+
+        // Add a custom button to the toolbar
+        this.toolbar.addHandler('q-img-text', () => {
+          const range = this.quill.getSelection();
+          const totalImages = this.quill.container.querySelectorAll('q-img-text').length;
+          this.quill.insertEmbed(range.index, 'qImage', {
+            image: 'https://picsum.photos/200/300',
+            title: totalImages > 0 ? String(totalImages) : '',
+            text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+          });
+          this.updateTitles();
+        });
+
+        // Allow drop handling in the editor
+        this.quill.root.addEventListener('drop', (event) => {
+          event.preventDefault();
+          const range = this.quill.getSelection();
+          const text = event.dataTransfer.getData('text');
+          const image = event.dataTransfer.getData('text/uri-list');
+          const totalImages = this.quill.container.querySelectorAll('q-img-text').length;
+          this.quill.insertEmbed(range.index, 'qImage', {
+            image,
+            title: totalImages > 0 ? String(totalImages) : '',
+            text,
+          });
+          this.updateTitles();
+        });
+
+        // Listen for changes in the editor content
+        this.quill.on('text-change', (delta) => {
+          if (delta.ops.some((op) => op.retain)) {
+            this.updateTitles();
+          }
+        });
+      }
+
+      // Update the title attribute of all qImage elements
+      updateTitles() {
+		const qImageBlots = this.quill.container.querySelectorAll('q-img-text');
+		const orderMap = new Map();
+
+		qImageBlots.forEach((qImage) => {
+				const prevElements = qImage.previousElementSibling;
+				const order = prevElements ? orderMap.get(prevElements.dataset.offset) + 1 : 0;
+				const img = qImage.querySelector('img');
+				img.setAttribute('title', order === 0 ? '' : String(order));
+				orderMap.set(qImage.dataset.offset, order);
+			});
+		}
+    }
+
+    // Initialize the Quill editor
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, 4, 5, 6, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          ['link', 'image', 'video'],
+          ['q-img-text'],
+        ],
+      },
+    });
+
+    // Register the custom module
+    quill.addModule('qImageTextModule', QImageTextModule);
+
+  </script>
+  </body>
+</html>
